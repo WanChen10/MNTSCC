@@ -15,7 +15,7 @@ class config:
     logger = None
  
     # training details
-    image_dims = (3, 32, 32)
+    image_dims = None
     lr = 1e-4
     aux_lr = 1e-3
     distortion_metric ='MSE'#'MSE'
