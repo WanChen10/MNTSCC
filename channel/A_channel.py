@@ -44,5 +44,4 @@ class Channel(nn.Module):
             sigma = np.sqrt(1.0 / (2 * 10 ** (SNR / 10)))
             chan_output = self.gaussian_noise_layer(channel_tx,
                                                     std=sigma)
-            print(self.chan_type,SNR)
             return chan_output

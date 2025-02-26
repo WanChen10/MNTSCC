@@ -19,17 +19,21 @@ def save_test(x_re_awgn):
     # 保存第一张图像
     save_image(x_re_awgn[0], os.path.join(output_dir, 'rec_awgn_1.png'))
 
-def train_one_epoch(epoch, net, train_loader, optimizer_G, aux_optimizer, device, logger):
+def train_one_epoch(epoch, net, train_loader, optimizer_G, aux_optimizer, device, logger,dataset):
     global global_step
     net.train()
     elapsed, losses, psnrs, bppys, bppzs, psnr_jsccs, cbrs = [AverageMeter() for _ in range(7)]
     metrics = [elapsed, losses, psnrs, bppys, bppzs, psnr_jsccs, cbrs]
-    for batch_idx, input_image in enumerate(train_loader):
+    for batch_idx, data in enumerate(train_loader):
         optimizer_G.zero_grad()
         aux_optimizer.zero_grad()
 
         start_time = time.time()
-        input_image = input_image.to(device)
+        if dataset=="cifar":
+            input_image,_ = data
+            input_image=input_image.to(device)
+        else:
+            input_image = data.to(device)
         global_step += 1
 
         even_numbers = [2,4,6,8,10,12]
@@ -80,7 +84,7 @@ def train_one_epoch(epoch, net, train_loader, optimizer_G, aux_optimizer, device
             for i in metrics:
                 i.clear()
 
-def test(net, test_loader, logger):
+def test(net, test_loader, logger,dataset):
     with torch.no_grad():
         net.eval()
         elapsed, losses, psnrs, bppys, bppzs, psnr_jsccs, cbrs = [AverageMeter() for _ in range(7)]
@@ -88,10 +92,14 @@ def test(net, test_loader, logger):
         CBR_list = []
 
         for batch_idx, data in enumerate(test_loader):
-
             start_time = time.time()
-            # input_image,_=data
-            input_image = data.cuda()
+
+            if dataset=="cifar":
+                input_image, _ = data
+                input_image=input_image.cuda()
+            else:
+                input_image = data.cuda()
+
             snr=10
             mse_loss_ntc, bpp_y, bpp_z, mse_loss_ntscc, cbr_y, x_hat_ntc, x_hat_ntscc = net(input_image,snr)
 
@@ -127,13 +135,13 @@ def test(net, test_loader, logger):
 def parse_args(argv):
     parser = argparse.ArgumentParser(description="Example training/testing script.")
     parser.add_argument("-p","--phase",type=str,help="Train or Test",
-        default='test',  # train
+        default='train',  # train
     )
     parser.add_argument("--checkpoint", type=str, help="Path to a checkpoint",
         default='/home/dl/data_hard/projects/Wc/myModel/MNTSCC/save_model/MNTSCC_Kodak/c0.0618_psnr34.8.model'
     )
     parser.add_argument("--datasets",type=str,
-        default='kodak'#cifar,kodak,clic
+        default='cifar'#cifar,kodak,clic
     )
     parser.add_argument(
         "-e",
@@ -207,7 +215,7 @@ def main(argv):
     if args.phase == 'test':
         model_path = args.checkpoint
         load_weights(net, model_path)
-        test(net, test_loader, logger)
+        test(net, test_loader, logger,args.datasets)
     elif args.phase == 'train':
         global global_step
         G_params = set(p for n, p in net.named_parameters() if not n.endswith(".quantiles"))
@@ -222,10 +230,10 @@ def main(argv):
         for epoch in range(steps_epoch, tot_epoch):
             logger.info('======Current epoch %s ======' % epoch)
             logger.info(f"Learning rate: {optimizer_G.param_groups[0]['lr']}")
-            train_one_epoch(epoch, net, train_loader, optimizer_G, aux_optimizer, device, logger)
+            train_one_epoch(epoch, net, train_loader, optimizer_G, aux_optimizer, device, logger,args.datasets)
             lr_scheduler.step()
 
-            loss = test(net, test_loader, logger)
+            loss = test(net, test_loader, logger,args.datasets)
             is_best = loss < best_loss
             best_loss = min(loss, best_loss)
             if is_best:

@@ -180,9 +180,12 @@ class NTC_Hyperprior(nn.Module):
     def forward(self, input_image, require_probs=False):
         B, C, H, W = input_image.shape
         # self.update_resolution(H, W)
+        # print("x.shape=",input_image.shape)
         y = self.ga(input_image)
+        # print("y.shape=",y.shape)
         y_shape = y.shape[2:]
         z = self.ha(y)
+        # print("z.shape=",z.shape)
         _, z_likelihoods = self.entropy_bottleneck(z)
         z_offset = self.entropy_bottleneck._get_medians()
         z_tmp = z - z_offset
@@ -191,7 +194,7 @@ class NTC_Hyperprior(nn.Module):
         # scales_hat, means_hat = self.hs(z_hat)
         gaussian_params = self.hs(z_hat)
         scales_hat, means_hat = gaussian_params.chunk(2, 1)
-        
+        # print("z_hat.shape=",scales_hat.shape)
         y_slices = y.chunk(self.num_slices, 1)
         y_hat_slices = []
         y_likelihood = []
@@ -228,8 +231,9 @@ class NTC_Hyperprior(nn.Module):
         scales = torch.cat(scale_list, dim=1)
 
         y_likelihoods = torch.cat(y_likelihood, dim=1)
-
+        # print("y_hat.shape=",y_hat.shape)
         x_hat = self.gs(y_hat)
+        
         mse_loss = self.distortion(input_image, x_hat)
         bpp_y = torch.log(y_likelihoods).sum() / (-math.log(2) * H * W) / B
         bpp_z = torch.log(z_likelihoods).sum() / (-math.log(2) * H * W) / B
@@ -284,7 +288,7 @@ class NTSCC_Hyperprior(NTC_Hyperprior):
         # time.start()
 
         s_masked, mask_BCHW, indexes = self.fe(y, y_likelihoods.detach(), eta=self.eta)
-
+        # print("s.shape=",s_masked.shape)
         #通过snr_net
         y_snr=self.snr_enc(s_masked,snr)
 
@@ -302,12 +306,13 @@ class NTSCC_Hyperprior(NTC_Hyperprior):
 
         # time.start()
         y_hat = self.fd(y_hat_snr, indexes)
-
+        # print("y_hat.shape=",y_hat.shape)
         # hyperprior-aided decoder refinement (optional)
         if self.config.use_side_info:
             y_combine = torch.cat([BCHW2BLN(y_hat), BCHW2BLN(means_hat), BCHW2BLN(scales_hat)], dim=-1)
-            y_hat = BLN2BCHW(BCHW2BLN(y_hat) + self.hyprior_refinement(y_combine), H // 16, W // 16)
+            y_hat = BLN2BCHW(BCHW2BLN(y_hat) + self.hyprior_refinement(y_combine), H // 4, W // 4)
         x_hat_ntscc = self.gs(y_hat).clip(0, 1)
+        # print("x_hat.shape=",x_hat_ntscc.shape)
         # print("Decode_time",time.end())
 
         mse_loss_ntscc = self.distortion(input_image, x_hat_ntscc)

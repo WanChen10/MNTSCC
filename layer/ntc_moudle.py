@@ -3,11 +3,7 @@ import torch.nn as nn
 import torch
 import math
 from sympy import print_rcode
-
-try:
-    from layer.vmamba import VSSLayer,VSSLayer_up,PatchMerging2D,PatchExpand2D,PatchEmbed2D
-except ImportError:
-    from layer.vmamba import VSSLayer,VSSLayer_up,PatchEmbed2D,PatchExpand2D,PatchMerging2D
+from layer.vmamba import VSSLayer,VSSLayer_up,PatchMerging2D,PatchExpand2D,PatchEmbed2D
 
 class ga(nn.Module):
     #input 1,3,256,256 output 1，256，16，16
@@ -41,6 +37,7 @@ class ga(nn.Module):
         x=self.embed(x)
         for layer in self.layers:
             x = layer(x)
+            # print("ga",x.permute(0,3,1,2).shape)
         y=x.permute(0,3,1,2)
         return y
 
@@ -77,6 +74,7 @@ class gs(nn.Module):
         x = x.permute(0, 2, 3, 1)
         for layer in self.layers:
             x = layer(x)
+            # print("gs",x.permute(0,3,1,2).shape)
         y = x.permute(0, 3, 1, 2)
         y = self.final_conv(y)
         return y
@@ -106,6 +104,7 @@ class ha(nn.Module):
         x=x.permute(0,2,3,1)#bchw->>bhwc
         for layer in self.layers:
             x = layer(x)
+            # print("ha",x.permute(0,3,1,2).shape)
         z=x.permute(0,3,1,2)#bhwc->>bchw
         return z#1,256,16,16 ->>1,448,4,4
 class hs(nn.Module):
@@ -137,77 +136,78 @@ class hs(nn.Module):
         x=x.permute(0,2,3,1)
         for layer in self.hs:
             x = layer(x)
+            # print("hs",x.permute(0,3,1,2).shape)
         x=x.permute(0,3,1,2)
         return x
 
-class ga_cifar(nn.Module):
-    #input 1,3,256,256 output 1，256，16，16
-    def __init__(self, patch_size=2, in_chans=3, depths=[2, 4], embed_dim=[128,256], 
-                 d_state=16, drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1,
-                 norm_layer=nn.LayerNorm, patch_norm=True,
-                 use_checkpoint=False, **kwargs):
-        super().__init__()
-        self.num_layers = len(depths)
-        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]
-        self.embed=PatchEmbed2D(patch_size=patch_size, 
-                                in_chans=in_chans, 
-                                embed_dim=embed_dim[0],
-                                norm_layer=norm_layer if patch_norm else None)
-        self.layers = nn.ModuleList()
-        for i_layer in range(self.num_layers):
-            layer = VSSLayer(
-                dim_in=embed_dim[i_layer],
-                dim_out=256,
-                depth=depths[i_layer],
-                d_state=math.ceil(embed_dim / 6) if d_state is None else d_state, # 20240109
-                drop=drop_rate, 
-                attn_drop=attn_drop_rate,
-                drop_path=dpr[sum(depths[:i_layer]):sum(depths[:i_layer + 1])],
-                norm_layer=norm_layer,
-                downsample=PatchMerging2D if (i_layer==0) else None,
-                use_checkpoint=use_checkpoint,
-            )
-            self.layers.append(layer)
+# class ga_cifar(nn.Module):
+#     #input 1,3,256,256 output 1，256，16，16
+#     def __init__(self, patch_size=2, in_chans=3, depths=[2, 4], embed_dim=[128,256], 
+#                  d_state=16, drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1,
+#                  norm_layer=nn.LayerNorm, patch_norm=True,
+#                  use_checkpoint=False, **kwargs):
+#         super().__init__()
+#         self.num_layers = len(depths)
+#         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]
+#         self.embed=PatchEmbed2D(patch_size=patch_size, 
+#                                 in_chans=in_chans, 
+#                                 embed_dim=embed_dim[0],
+#                                 norm_layer=norm_layer if patch_norm else None)
+#         self.layers = nn.ModuleList()
+#         for i_layer in range(self.num_layers):
+#             layer = VSSLayer(
+#                 dim_in=embed_dim[i_layer],
+#                 dim_out=256,
+#                 depth=depths[i_layer],
+#                 d_state=math.ceil(embed_dim / 6) if d_state is None else d_state, # 20240109
+#                 drop=drop_rate, 
+#                 attn_drop=attn_drop_rate,
+#                 drop_path=dpr[sum(depths[:i_layer]):sum(depths[:i_layer + 1])],
+#                 norm_layer=norm_layer,
+#                 downsample=PatchMerging2D if (i_layer==0) else None,
+#                 use_checkpoint=use_checkpoint,
+#             )
+#             self.layers.append(layer)
 
-    def forward(self, x):
-        x=self.embed(x)
-        for layer in self.layers:
-            x = layer(x)
-        y=x.permute(0,3,1,2)
-        return y
-class gs_cifar(nn.Module):
-    #input 1,256，16，16  output:1,3,256,256
-    def __init__(self,  depths=[4, 2], 
-                embed_dim=256, d_state=16, drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1,
-                norm_layer=nn.LayerNorm, use_checkpoint=False, **kwargs):
+#     def forward(self, x):
+#         x=self.embed(x)
+#         for layer in self.layers:
+#             x = layer(x)
+#         y=x.permute(0,3,1,2)
+#         return y
+# class gs_cifar(nn.Module):
+#     #input 1,256，16，16  output:1,3,256,256
+#     def __init__(self,  depths=[4, 2], 
+#                 embed_dim=256, d_state=16, drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1,
+#                 norm_layer=nn.LayerNorm, use_checkpoint=False, **kwargs):
 
-        super().__init__()
-        self.num_layers = len(depths)
-        dpr_decoder = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))][::-1]
-        self.final_conv=nn.ConvTranspose2d(in_channels=128,out_channels=3,kernel_size=2,stride=2)
-        self.layers = nn.ModuleList()
-        for i_layer in range(self.num_layers):
-            layer = VSSLayer_up(
-                dim_in=embed_dim if i_layer==0 else 128,
-                dim_out=128 ,
-                depth=depths[i_layer],
-                d_state=math.ceil(embed_dim / 6) if d_state is None else d_state, # 20240109
-                drop=drop_rate, 
-                attn_drop=attn_drop_rate,
-                drop_path=dpr_decoder[sum(depths[:i_layer]):sum(depths[:i_layer + 1])],
-                norm_layer=norm_layer,
-                upsample=PatchExpand2D if (i_layer ==0) else None,
-                use_checkpoint=use_checkpoint,
-            )
-            self.layers.append(layer)
+#         super().__init__()
+#         self.num_layers = len(depths)
+#         dpr_decoder = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))][::-1]
+#         self.final_conv=nn.ConvTranspose2d(in_channels=128,out_channels=3,kernel_size=2,stride=2)
+#         self.layers = nn.ModuleList()
+#         for i_layer in range(self.num_layers):
+#             layer = VSSLayer_up(
+#                 dim_in=embed_dim if i_layer==0 else 128,
+#                 dim_out=128 ,
+#                 depth=depths[i_layer],
+#                 d_state=math.ceil(embed_dim / 6) if d_state is None else d_state, # 20240109
+#                 drop=drop_rate, 
+#                 attn_drop=attn_drop_rate,
+#                 drop_path=dpr_decoder[sum(depths[:i_layer]):sum(depths[:i_layer + 1])],
+#                 norm_layer=norm_layer,
+#                 upsample=PatchExpand2D if (i_layer ==0) else None,
+#                 use_checkpoint=use_checkpoint,
+#             )
+#             self.layers.append(layer)
         
-    def forward(self, x):
-        x=x.permute(0,2,3,1)
-        for layer in self.layers:
-            x = layer(x)
-        y = x.permute(0, 3, 1, 2)
-        y=self.final_conv(y)
-        return y
+#     def forward(self, x):
+#         x=x.permute(0,2,3,1)
+#         for layer in self.layers:
+#             x = layer(x)
+#         y = x.permute(0, 3, 1, 2)
+#         y=self.final_conv(y)
+#         return y
 
 ga_kwargs = dict(
         patch_size=2,in_chans=3,

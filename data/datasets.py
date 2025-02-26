@@ -71,7 +71,7 @@ def get_cifar_loader(config):
     transform_test = transforms.Compose([
                 transforms.ToTensor()])
     trainset = torchvision.datasets.CIFAR10(root=config.cifar_dir, train=True, download=True, transform=transform_train)
-    trainloader = DataLoader(trainset, batch_size=64, shuffle=True, num_workers=0)
+    trainloader = DataLoader(trainset, batch_size=52, shuffle=True, num_workers=0)
     testset = torchvision.datasets.CIFAR10(root=config.cifar_dir, train=False, download=True, transform=transform_test)
     testloader = DataLoader(testset, batch_size=8, shuffle=True, num_workers=0)
     return trainloader,testloader#drop_last = True
