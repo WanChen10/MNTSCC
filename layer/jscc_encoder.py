@@ -6,9 +6,9 @@ from layer.vmamba import Mlp
 import numpy as np
 from layer.vmamba import VSSLayer
 class RateAdaptionEncoder(nn.Module):
-    def __init__(self, channel_num, rate_choice, mode='CHW'):
+    def __init__(self, channel_num, rate_choice,img_size, mode='CHW'):
         super(RateAdaptionEncoder, self).__init__()
-        self.C, self.H, self.W = (channel_num, 16, 16)#输入张量的通道数，以及高度和宽度
+        self.C, self.H, self.W = (channel_num, img_size, img_size)#输入张量的通道数，以及高度和宽度
         self.rate_num = len(rate_choice)#可选速率数量
         self.rate_choice = rate_choice
         self.register_buffer("rate_choice_tensor", torch.tensor(np.asarray(rate_choice)))
@@ -57,6 +57,7 @@ class JSCCEncoder(nn.Module):
                  drop_rate=0., attn_drop_rate=0.,
                  drop_path_rate=0.1,
                  d_state=16,
+                 img_size=16
                 ):
         super(JSCCEncoder, self).__init__()
         self.embed_dim = embed_dim
@@ -76,7 +77,7 @@ class JSCCEncoder(nn.Module):
                 use_checkpoint=False,
             )
             self.layers.append(layer)
-        self.rate_adaption = RateAdaptionEncoder(embed_dim, rate_choice)#定义速率模块
+        self.rate_adaption = RateAdaptionEncoder(embed_dim, rate_choice,img_size)#定义速率模块
         self.rate_choice = rate_choice
         self.rate_num = len(rate_choice)
         self.register_buffer("rate_choice_tensor", torch.tensor(np.asarray(rate_choice)))

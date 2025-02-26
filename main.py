@@ -184,24 +184,30 @@ def main(argv):
     config.logger = logger
     logger.info(config.__dict__)
 
-    net = NTSCC_Hyperprior(config).cuda()
     
-    if args.phase =='test':
-        model_path = args.checkpoint
-        load_weights(net, model_path)
-
+    
     if args.datasets=='cifar':
+        config.resolution=32
+        config.set_model_params()
         train_loader,test_loader=get_cifar_loader(config)
 
     elif args.datasets=='kodak':
+        config.resolution=256
+        config.set_model_params()
         train_loader=get_trainloader(config)
         test_loader=get_kodak_testloader(config)
 
     elif args.datasets=='clic':
+        config.resolution=256
+        config.set_model_params()
         train_loader=get_trainloader(config)
         test_loader=get_clic_testloader(config)
 
+    net = NTSCC_Hyperprior(config).cuda()
+
     if args.phase == 'test':
+        model_path = args.checkpoint
+        load_weights(net, model_path)
         test(net, test_loader, logger)
     elif args.phase == 'train':
         global global_step

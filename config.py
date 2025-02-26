@@ -15,7 +15,7 @@ class config:
     logger = None
  
     # training details
-    image_dims = (3, 256, 256)
+    image_dims = (3, 32, 32)
     lr = 1e-4
     aux_lr = 1e-3
     distortion_metric ='MSE'#'MSE'
@@ -26,39 +26,93 @@ class config:
 
     channel = {"type": 'awgn', 'chan_param': 10}
     multiple_rate = [16,32,48,64,80,96,102,118, 134, 160, 186, 192, 208, 224,240, 256]#16,
+    resolution=None
 
-    ga_kwargs = dict(
-        patch_size=2,in_chans=3,
-        depths=[1, 1, 2, 4],embed_dim=[256, 256, 256, 256],
-        d_state=16, drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1,
-        norm_layer=nn.LayerNorm, patch_norm=True,use_checkpoint=False
-    )
-    gs_kwargs = dict(
-        out_chans=3,
-        depths=[4, 2, 1, 1], embed_dim=[256, 256, 256, 256],
-        d_state=16, drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1,
-        norm_layer=nn.LayerNorm, patch_norm=True, use_checkpoint=False
-    )
+    @classmethod
+    def set_model_params(cls):
+        if cls.resolution == 256:
+            cls.ga_kwargs = dict(
+                patch_size=2, in_chans=3,
+                depths=[1, 1, 2, 4], embed_dim=[256, 256, 256, 256],
+                d_state=16, drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1,
+                norm_layer=nn.LayerNorm, patch_norm=True, use_checkpoint=False
+            )
+            cls.gs_kwargs = dict(
+                out_chans=3,
+                depths=[4, 2, 1, 1], embed_dim=[256, 256, 256, 256],
+                d_state=16, drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1,
+                norm_layer=nn.LayerNorm, patch_norm=True, use_checkpoint=False
+            )
+            cls.fe_kwargs = dict(
+                embed_dim=256, depths=[1, 1, 1], norm_layer=nn.LayerNorm, rate_choice=cls.multiple_rate, img_size=16,
+                drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1, d_state=16,
+            )
+            cls.fd_kwargs = dict(
+                embed_dim=256, depths=[1, 1, 1], norm_layer=nn.LayerNorm, rate_choice=cls.multiple_rate, 
+                drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1, d_state=16,
+            )
+        elif cls.resolution == 32:
+            
+            cls.ga_kwargs = dict(
+                patch_size=2, in_chans=3,
+                depths=[2, 4], embed_dim=[128, 256],
+                d_state=16, drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1,
+                norm_layer=nn.LayerNorm, patch_norm=True, use_checkpoint=False
+            )
+            cls.gs_kwargs = dict(
+                out_chans=3,
+                depths=[4, 2], embed_dim=[256, 128],
+                d_state=16, drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1,
+                norm_layer=nn.LayerNorm, patch_norm=True, use_checkpoint=False
+            )
+            cls.fe_kwargs = dict(
+                embed_dim=256, depths=[1, 1, 1], norm_layer=nn.LayerNorm, rate_choice=cls.multiple_rate, img_size=8,
+                drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1, d_state=16,
+            )
+            cls.fd_kwargs = dict(
+                embed_dim=256, depths=[1, 1, 1], norm_layer=nn.LayerNorm, rate_choice=cls.multiple_rate, 
+                drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1, d_state=16,
+            )
 
-    fe_kwargs = dict(
-        embed_dim=256, depths=[1, 1, 1], norm_layer=nn.LayerNorm, rate_choice=multiple_rate,
-        drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1, d_state=16,
-    )
-
-    fd_kwargs = dict(
-        embed_dim=256, depths=[1, 1, 1], norm_layer=nn.LayerNorm, rate_choice=multiple_rate,
-        drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1, d_state=16,
-    )
-
-    ga_cifar_kwargs = dict(
-        patch_size=2,in_chans=3,
-        depths=[2, 4],embed_dim=[128, 256],
-        d_state=16, drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1,
-        norm_layer=nn.LayerNorm, patch_norm=True,use_checkpoint=False
-    )
-    gs_cifar_kwargs = dict(
-        out_chans=3,
-        depths=[4, 2], embed_dim=[256,128],
-        d_state=16, drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1,
-        norm_layer=nn.LayerNorm, patch_norm=True, use_checkpoint=False
-    )
+    # if resolution =="256":
+    #     ga_kwargs = dict(
+    #         patch_size=2,in_chans=3,
+    #         depths=[1, 1, 2, 4],embed_dim=[256, 256, 256, 256],
+    #         d_state=16, drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1,
+    #         norm_layer=nn.LayerNorm, patch_norm=True,use_checkpoint=False
+    #     )
+    #     gs_kwargs = dict(
+    #         out_chans=3,
+    #         depths=[4, 2, 1, 1], embed_dim=[256, 256, 256, 256],
+    #         d_state=16, drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1,
+    #         norm_layer=nn.LayerNorm, patch_norm=True, use_checkpoint=False
+    #     )
+    #     fe_kwargs = dict(
+    #         embed_dim=256, depths=[1, 1, 1], norm_layer=nn.LayerNorm, rate_choice=multiple_rate,img_size=16,
+    #         drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1, d_state=16,
+    #     )
+    #     fd_kwargs = dict(
+    #         embed_dim=256, depths=[1, 1, 1], norm_layer=nn.LayerNorm, rate_choice=multiple_rate,img_size=16,
+    #         drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1, d_state=16,
+    #     )
+    # elif resolution =="32":
+    #     ga_kwargs = dict(
+    #         patch_size=2,in_chans=3,
+    #         depths=[2, 4],embed_dim=[128, 256],
+    #         d_state=16, drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1,
+    #         norm_layer=nn.LayerNorm, patch_norm=True,use_checkpoint=False
+    #     )
+    #     gs_kwargs = dict(
+    #         out_chans=3,
+    #         depths=[4, 2], embed_dim=[256,128],
+    #         d_state=16, drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1,
+    #         norm_layer=nn.LayerNorm, patch_norm=True, use_checkpoint=False
+    #     )
+    #     fe_kwargs = dict(
+    #         embed_dim=256, depths=[1, 1, 1], norm_layer=nn.LayerNorm, rate_choice=multiple_rate,img_size=8,
+    #         drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1, d_state=16,
+    #     )
+    #     fd_kwargs = dict(
+    #         embed_dim=256, depths=[1, 1, 1], norm_layer=nn.LayerNorm, rate_choice=multiple_rate,img_size=8,
+    #         drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1, d_state=16,
+    #     )
