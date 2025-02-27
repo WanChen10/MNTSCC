@@ -1,17 +1,21 @@
 
 from datetime import datetime
+from math import log10
 import sys
 import random
 import argparse
 from torchvision.utils import save_image
 from data.datasets import get_cifar_loader, get_clic_testloader, get_kodak_testloader, get_trainloader
 # from net.mamba_HEM_SNR import NTSCC_Hyperprior
-from net.MNTSCC import NTSCC_Hyperprior
-# from net.MNTSCC_wo_SNR import NTSCC_Hyperprior
+# from net.MNTSCC import NTSCC_Hyperprior
+from net.MNTSCC_wo_SNR import NTSCC_Hyperprior
 # from net.MNTSCC_cifar import NTSCC_Hyperprior
+
 import torch.optim as optim
 from utils import *
 from config import config
+from loss.distortion import MS_SSIM
+CalcuSSIM = MS_SSIM(window_size=3, data_range=1., levels=4, channel=3).cuda()
 
 def save_test(x_re_awgn):
     output_dir = './test_image/MNTSCC'
@@ -22,8 +26,8 @@ def save_test(x_re_awgn):
 def train_one_epoch(epoch, net, train_loader, optimizer_G, aux_optimizer, device, logger,dataset):
     global global_step
     net.train()
-    elapsed, losses, psnrs, bppys, bppzs, psnr_jsccs, cbrs = [AverageMeter() for _ in range(7)]
-    metrics = [elapsed, losses, psnrs, bppys, bppzs, psnr_jsccs, cbrs]
+    elapsed, losses, psnrs, bppys, bppzs, psnr_jsccs, cbrs,msssims = [AverageMeter() for _ in range(8)]
+    metrics = [elapsed, losses, psnrs, bppys, bppzs, psnr_jsccs, cbrs,msssims]
     for batch_idx, data in enumerate(train_loader):
         optimizer_G.zero_grad()
         aux_optimizer.zero_grad()
@@ -67,6 +71,10 @@ def train_one_epoch(epoch, net, train_loader, optimizer_G, aux_optimizer, device
         psnr = 10 * (torch.log(255. * 255. / mse_loss_ntc) / np.log(10))
         psnrs.update(psnr.item())
 
+        msssim_jscc = 1 - CalcuSSIM(input_image.clamp(0.,1.), x_hat_ntscc.clamp(0., 1.)).mean().item()
+        msssim_jscc = -10 * log10(1 - msssim_jscc)
+        msssims.update(msssim_jscc)
+
         if (global_step % config.print_step) == 0:
             process = (global_step % train_loader.__len__()) / (train_loader.__len__()) * 100.0
             log = (' | '.join([
@@ -75,7 +83,7 @@ def train_one_epoch(epoch, net, train_loader, optimizer_G, aux_optimizer, device
                 f'Time {elapsed.avg:.2f}',
                 f'PSNR_JSCC {psnr_jsccs.val:.2f} ({psnr_jsccs.avg:.2f})',
                 f'CBR {cbrs.val:.4f} ({cbrs.avg:.4f})',
-                f'PSNR_NTC {psnrs.val:.2f} ({psnrs.avg:.2f})',
+                f'MS-SSIM {msssims.val:.2f} ({msssims.avg:.2f})',
                 f'Bpp_y {bppys.val:.2f} ({bppys.avg:.2f})',
                 f'Bpp_z {bppzs.val:.4f} ({bppzs.avg:.4f})',
                 f'Epoch {epoch}',
@@ -87,10 +95,10 @@ def train_one_epoch(epoch, net, train_loader, optimizer_G, aux_optimizer, device
 def test(net, test_loader, logger,dataset):
     with torch.no_grad():
         net.eval()
-        elapsed, losses, psnrs, bppys, bppzs, psnr_jsccs, cbrs = [AverageMeter() for _ in range(7)]
+        elapsed, losses, psnrs, bppys, bppzs, psnr_jsccs, cbrs,msssims = [AverageMeter() for _ in range(8)]
         PSNR_list = []
         CBR_list = []
-
+        MSSSIM_list = []
         for batch_idx, data in enumerate(test_loader):
             start_time = time.time()
 
@@ -116,6 +124,10 @@ def test(net, test_loader, logger,dataset):
             psnr_jsccs.update(psnr_jscc)
             psnr = CalcuPSNR_int(input_image, x_hat_ntc).mean()
             psnrs.update(psnr)
+
+            msssim_jscc = 1 - CalcuSSIM(input_image.clamp(0.,1.), x_hat_ntscc.clamp(0., 1.)).mean().item()
+            msssim_jscc = -10 * log10(1 - msssim_jscc)
+            msssims.update(msssim_jscc)
             # log = (' | '.join([
             #     f'Loss {losses.val:.3f} ({losses.avg:.3f})',
             #     f'Time {elapsed.val:.2f}',
@@ -128,20 +140,21 @@ def test(net, test_loader, logger,dataset):
             # logger.info(log)
             PSNR_list.append(psnr_jscc)
             CBR_list.append(cbr_y)
-    logger.info(f'Finish test! Average PSNR={psnr_jsccs.avg:.4f}dB, CBR={cbrs.avg:.4f}')
+            MSSSIM_list.append(msssim_jscc)
+    logger.info(f'Finish test! Average PSNR={psnr_jsccs.avg:.4f}dB, MS-SSIM={msssims.avg:.4f}, CBR={cbrs.avg:.4f}')
 
     return losses.avg
 
 def parse_args(argv):
     parser = argparse.ArgumentParser(description="Example training/testing script.")
     parser.add_argument("-p","--phase",type=str,help="Train or Test",
-        default='train',  # train
+        default='test',  # train
     )
     parser.add_argument("--checkpoint", type=str, help="Path to a checkpoint",
-        default='/home/dl/data_hard/projects/Wc/myModel/MNTSCC/save_model/MNTSCC_Kodak/c0.0618_psnr34.8.model'
+        default='/home/dl/data_hard/projects/Wc/myModel/MNTSCC/save_model/MNTSCC_Kodak/c0.0225_psnr31.2.model'
     )
     parser.add_argument("--datasets",type=str,
-        default='cifar'#cifar,kodak,clic
+        default='kodak'#cifar,kodak,clic
     )
     parser.add_argument(
         "-e",
