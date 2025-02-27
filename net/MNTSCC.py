@@ -308,9 +308,13 @@ class NTSCC_Hyperprior(NTC_Hyperprior):
         y_hat = self.fd(y_hat_snr, indexes)
         # print("y_hat.shape=",y_hat.shape)
         # hyperprior-aided decoder refinement (optional)
+        if H==32:
+            hyprior_resize=H//4
+        else:
+            hyprior_resize=H//16
         if self.config.use_side_info:
             y_combine = torch.cat([BCHW2BLN(y_hat), BCHW2BLN(means_hat), BCHW2BLN(scales_hat)], dim=-1)
-            y_hat = BLN2BCHW(BCHW2BLN(y_hat) + self.hyprior_refinement(y_combine), H // 4, W // 4)
+            y_hat = BLN2BCHW(BCHW2BLN(y_hat) + self.hyprior_refinement(y_combine), hyprior_resize, hyprior_resize)
         x_hat_ntscc = self.gs(y_hat).clip(0, 1)
         # print("x_hat.shape=",x_hat_ntscc.shape)
         # print("Decode_time",time.end())
