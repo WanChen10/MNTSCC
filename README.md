@@ -1,4 +1,4 @@
-# Efficient Adaptive Nonlinear Deep Coding with Visual State Space Model
+# Adaptive Nonlinear Joint Source-Channel Coding with Visual State Space Model for Wireless Image Transmission
 
 This repository is the official implementation of [Adaptive Nonlinear Joint Source-Channel Coding with Visual State Space Model for Wireless Image Transmission].
 
